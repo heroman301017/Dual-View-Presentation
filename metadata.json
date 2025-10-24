@@ -1,0 +1,8 @@
+{
+  "name": "Dual-View Presentation Rehearsal System",
+  "description": "An application for speakers to practice presentations with a dual-view layout, showing their camera feed alongside their content (PDF slides/documents). Features include recording, a timer, and notes to help users improve their public speaking skills.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
