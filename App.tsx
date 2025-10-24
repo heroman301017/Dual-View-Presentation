@@ -1,10 +1,9 @@
-
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { CameraView } from './components/CameraView';
 import { ContentViewer } from './components/ContentViewer';
 import { ViewMode } from './types';
 // FIX: Removed import for 'SlidersHorizontal' which is not exported from './components/icons', and also removed other unused icon imports.
-import { Download, FileUp, FlipHorizontal, Mic, Play, RefreshCw, Square, StickyNote, TimerIcon, SparklesIcon } from './components/icons';
+import { Download, FileUp, FlipHorizontal, Mic, Play, RefreshCw, Square, StickyNote, TimerIcon, SparklesIcon, BrainCircuit, Columns2 } from './components/icons';
 
 const cameraFilters = {
   none: 'None',
@@ -15,6 +14,7 @@ const cameraFilters = {
   grayscale: 'Grayscale',
 };
 type CameraFilter = keyof typeof cameraFilters;
+type LayoutOrientation = 'horizontal' | 'vertical';
 
 const App: React.FC = () => {
     const [viewMode, setViewMode] = useState<ViewMode>(ViewMode.Presentation);
@@ -23,6 +23,7 @@ const App: React.FC = () => {
     const [dividerPosition, setDividerPosition] = useState(50);
     const [isDragging, setIsDragging] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
+    const [layoutOrientation, setLayoutOrientation] = useState<LayoutOrientation>('horizontal');
 
     const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
     const [isRecording, setIsRecording] = useState(false);
@@ -41,6 +42,8 @@ const App: React.FC = () => {
     const [showFilterPanel, setShowFilterPanel] = useState(false);
     const filterPanelRef = useRef<HTMLDivElement>(null);
 
+    const [isAiAssistantEnabled, setIsAiAssistantEnabled] = useState(false);
+
     const handleMouseDown = (e: React.MouseEvent) => {
         e.preventDefault();
         setIsDragging(true);
@@ -51,14 +54,21 @@ const App: React.FC = () => {
     }, []);
 
     const handleMouseMove = useCallback((e: MouseEvent) => {
-        if (isDragging && containerRef.current) {
-            const rect = containerRef.current.getBoundingClientRect();
-            const newDividerPosition = ((e.clientX - rect.left) / rect.width) * 100;
-            if (newDividerPosition > 20 && newDividerPosition < 80) {
-                setDividerPosition(newDividerPosition);
-            }
+        if (!isDragging || !containerRef.current) return;
+        
+        const rect = containerRef.current.getBoundingClientRect();
+        let newDividerPosition;
+
+        if (layoutOrientation === 'horizontal') {
+            newDividerPosition = ((e.clientX - rect.left) / rect.width) * 100;
+        } else {
+            newDividerPosition = ((e.clientY - rect.top) / rect.height) * 100;
         }
-    }, [isDragging]);
+
+        if (newDividerPosition > 20 && newDividerPosition < 80) {
+            setDividerPosition(newDividerPosition);
+        }
+    }, [isDragging, layoutOrientation]);
 
     useEffect(() => {
         if (isDragging) {
@@ -185,6 +195,16 @@ const App: React.FC = () => {
     
     const hasRecording = recordedChunks.length > 0;
 
+    const cameraContainerStyle: React.CSSProperties = {
+        width: layoutOrientation === 'horizontal' ? `${dividerPosition}%` : '100%',
+        height: layoutOrientation === 'vertical' ? `${dividerPosition}%` : '100%',
+    };
+
+    const contentContainerStyle: React.CSSProperties = {
+        width: layoutOrientation === 'horizontal' ? `calc(100% - ${dividerPosition}%)` : '100%',
+        height: layoutOrientation === 'vertical' ? `calc(100% - ${dividerPosition}%)` : '100%',
+    };
+    
     return (
         <div className="h-screen w-screen flex flex-col bg-gray-900 text-white select-none">
             {recordedVideoUrl && (
@@ -201,16 +221,21 @@ const App: React.FC = () => {
                     </div>
                 </div>
             )}
-            <main ref={containerRef} className="flex-grow flex h-full relative overflow-hidden">
-                <div className="h-full" style={{ width: `${dividerPosition}%` }}>
+            <main ref={containerRef} className={`flex-grow flex h-full relative overflow-hidden ${layoutOrientation === 'horizontal' ? 'flex-row' : 'flex-col'}`}>
+                <div style={cameraContainerStyle}>
                     <CameraView 
                       isMirrored={isMirrored} 
                       onStreamReady={setMediaStream}
                       filterClassName={`filter-${activeFilter}`}
+                      aiAssistantEnabled={isAiAssistantEnabled}
                     />
                 </div>
-                <div onMouseDown={handleMouseDown} className="w-2 h-full bg-gray-700 hover:bg-blue-500 cursor-col-resize absolute top-0 bottom-0 z-10 transition-colors" style={{ left: `calc(${dividerPosition}% - 4px)` }}></div>
-                <div className="h-full" style={{ width: `calc(100% - ${dividerPosition}%)` }}>
+                <div 
+                  onMouseDown={handleMouseDown} 
+                  className={`absolute bg-gray-700 hover:bg-blue-500 z-10 transition-colors ${layoutOrientation === 'horizontal' ? 'w-2 h-full cursor-col-resize top-0' : 'h-2 w-full cursor-row-resize left-0'}`} 
+                  style={layoutOrientation === 'horizontal' ? { left: `calc(${dividerPosition}% - 4px)` } : { top: `calc(${dividerPosition}% - 4px)` }}
+                ></div>
+                <div style={contentContainerStyle}>
                     <ContentViewer 
                         file={file} 
                         viewMode={viewMode} 
@@ -315,6 +340,16 @@ const App: React.FC = () => {
                           </div>
                         )}
                     </div>
+                     <button 
+                        onClick={() => setIsAiAssistantEnabled(!isAiAssistantEnabled)} 
+                        className={`p-2 rounded-md ${isAiAssistantEnabled ? 'bg-blue-600' : 'hover:bg-gray-700'} transition-colors`} 
+                        title="Toggle AI Assistant"
+                    >
+                        <BrainCircuit className="h-6 w-6" />
+                    </button>
+                    <button onClick={() => setLayoutOrientation(p => p === 'horizontal' ? 'vertical' : 'horizontal')} className="p-2 rounded-md hover:bg-gray-700 transition-colors" title="Toggle Layout">
+                        <Columns2 className="h-6 w-6" />
+                    </button>
                     <button onClick={() => setIsMirrored(!isMirrored)} className="p-2 rounded-md hover:bg-gray-700 transition-colors" title="Mirror Camera">
                         <FlipHorizontal className="h-6 w-6" />
                     </button>
